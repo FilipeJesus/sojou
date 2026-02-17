@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "Sojou",
+    "slug": "sojou",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "sojou",
+    "newArchEnabled": true,
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "plugins": [
+      "expo-router",
+      "expo-asset",
+      "expo-font"
+    ]
+  }
+}
