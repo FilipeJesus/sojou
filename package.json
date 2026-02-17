@@ -8,7 +8,36 @@
     "start:clear": "expo start -c",
     "ios": "expo run:ios",
     "android": "expo run:android",
-    "ts:check": "tsc --noEmit"
+    "ts:check": "tsc --noEmit",
+    "lint": "expo lint",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\" \"app/**/*.{ts,tsx}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"app/**/*.{ts,tsx}\"",
+    "test": "jest",
+    "fetch-photos": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/fetch-unsplash-photos.ts"
+  },
+  "jest": {
+    "projects": [
+      {
+        "displayName": "unit",
+        "testMatch": [
+          "<rootDir>/src/lib/__tests__/**/*.test.ts"
+        ],
+        "transform": {
+          "^.+\\.ts$": "ts-jest"
+        }
+      },
+      {
+        "displayName": "components",
+        "preset": "jest-expo",
+        "testMatch": [
+          "<rootDir>/src/components/__tests__/**/*.test.tsx",
+          "<rootDir>/app/__tests__/**/*.test.tsx"
+        ],
+        "transformIgnorePatterns": [
+          "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|zustand)"
+        ]
+      }
+    ]
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -17,6 +46,7 @@
     "expo-asset": "~12.0.12",
     "expo-constants": "~18.0.13",
     "expo-font": "~14.0.11",
+    "expo-image": "~3.0.11",
     "expo-linking": "~8.0.11",
     "expo-router": "~6.0.23",
     "expo-status-bar": "~3.0.9",
@@ -30,7 +60,17 @@
     "zustand": "^5.0.3"
   },
   "devDependencies": {
+    "@testing-library/jest-native": "^5.4.3",
+    "@testing-library/react-native": "^13.3.3",
+    "@types/jest": "^30.0.0",
     "@types/react": "~19.1.0",
+    "eslint": "^9.39.2",
+    "eslint-config-expo": "~10.0.0",
+    "jest": "^30.2.0",
+    "jest-expo": "^54.0.17",
+    "prettier": "^3.8.1",
+    "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2",
     "typescript": "~5.9.2"
   }
 }
