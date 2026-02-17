@@ -3,7 +3,8 @@ export type Category = "food" | "culture" | "nature" | "night" | "shopping";
 export type Activity = {
   id: string;
   name: string;
-  photoUrl: string;
+  place?: string;
+  photoUrls: string[];
   category: Category;
   tags: string[];
   durationMins: number;

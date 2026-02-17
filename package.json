@@ -13,7 +13,7 @@
     "format": "prettier --write \"src/**/*.{ts,tsx}\" \"app/**/*.{ts,tsx}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"app/**/*.{ts,tsx}\"",
     "test": "jest",
-    "fetch-photos": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/fetch-unsplash-photos.ts"
+    "fetch-photos": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/fetch-pexels-photos.ts"
   },
   "jest": {
     "projects": [

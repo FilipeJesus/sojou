@@ -2,6 +2,7 @@ import { create } from "zustand";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Activity } from "../types/activity";
 import { buildItinerary, ItineraryDay } from "../lib/itinerary";
+import { ACTIVITIES_PARIS } from "../data/activities.paris";
 
 type TripConfig = {
   city: "Paris";
@@ -27,8 +28,12 @@ type TripState = {
   swipeSave: (activity: Activity) => void;
   swipePass: (activity: Activity) => void;
 
+  toggleCategory: (cat: Activity["category"]) => void;
+  setBudgetTier: (tier: 0 | 1 | 2 | 3) => void;
+
   removeFromTrip: (activityId: string) => void;
   regenerate: () => void;
+  resetSwipes: () => void;
 
   hydrate: () => Promise<void>;
   persist: () => Promise<void>;
@@ -97,6 +102,25 @@ export const useTripStore = create<TripState>((set, get) => ({
     void get().persist();
   },
 
+  toggleCategory: (cat) => {
+    set((st) => {
+      const categories = new Set(st.config.categories);
+      if (categories.has(cat)) {
+        // Don't allow deselecting all categories
+        if (categories.size > 1) categories.delete(cat);
+      } else {
+        categories.add(cat);
+      }
+      return { config: { ...st.config, categories } };
+    });
+    void get().persist();
+  },
+
+  setBudgetTier: (tier) => {
+    set((st) => ({ config: { ...st.config, budgetTier: tier } }));
+    void get().persist();
+  },
+
   removeFromTrip: (activityId) => {
     set((st) => {
       const addedIds = new Set(st.addedIds);
@@ -104,6 +128,11 @@ export const useTripStore = create<TripState>((set, get) => ({
       return { addedIds };
     });
     get().regenerate();
+    void get().persist();
+  },
+
+  resetSwipes: () => {
+    set({ addedIds: new Set(), savedIds: new Set(), passedIds: new Set(), itinerary: [], overflow: [] });
     void get().persist();
   },
 
@@ -115,44 +144,56 @@ export const useTripStore = create<TripState>((set, get) => ({
   },
 
   hydrate: async () => {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
+    // Always load the deck so regenerate() has data to work with
+    set({ deck: ACTIVITIES_PARIS });
 
-    const parsed = JSON.parse(raw) as {
-      config: { city: "Paris"; daysCount: number; budgetTier: 0 | 1 | 2 | 3; categories: Activity["category"][] };
-      addedIds: string[];
-      savedIds: string[];
-      passedIds: string[];
-    };
+    try {
+      const raw = await AsyncStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
 
-    set({
-      config: {
-        city: parsed.config.city,
-        daysCount: parsed.config.daysCount,
-        budgetTier: parsed.config.budgetTier,
-        categories: arrayToSet(parsed.config.categories),
-      },
-      addedIds: arrayToSet(parsed.addedIds),
-      savedIds: arrayToSet(parsed.savedIds),
-      passedIds: arrayToSet(parsed.passedIds),
-    });
+      const parsed = JSON.parse(raw) as {
+        config: { city: "Paris"; daysCount: number; budgetTier: 0 | 1 | 2 | 3; categories: Activity["category"][] };
+        addedIds: string[];
+        savedIds: string[];
+        passedIds: string[];
+      };
 
-    get().regenerate();
+      set({
+        config: {
+          city: parsed.config.city,
+          daysCount: parsed.config.daysCount,
+          budgetTier: parsed.config.budgetTier,
+          categories: arrayToSet(parsed.config.categories),
+        },
+        addedIds: arrayToSet(parsed.addedIds),
+        savedIds: arrayToSet(parsed.savedIds),
+        passedIds: arrayToSet(parsed.passedIds),
+      });
+
+      get().regenerate();
+    } catch {
+      // Corrupt storage — clear it and continue with defaults
+      await AsyncStorage.removeItem(STORAGE_KEY).catch(() => {});
+    }
   },
 
   persist: async () => {
-    const st = get();
-    const payload = {
-      config: {
-        city: st.config.city,
-        daysCount: st.config.daysCount,
-        budgetTier: st.config.budgetTier,
-        categories: setToArray(st.config.categories),
-      },
-      addedIds: setToArray(st.addedIds),
-      savedIds: setToArray(st.savedIds),
-      passedIds: setToArray(st.passedIds),
-    };
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    try {
+      const st = get();
+      const payload = {
+        config: {
+          city: st.config.city,
+          daysCount: st.config.daysCount,
+          budgetTier: st.config.budgetTier,
+          categories: setToArray(st.config.categories),
+        },
+        addedIds: setToArray(st.addedIds),
+        savedIds: setToArray(st.savedIds),
+        passedIds: setToArray(st.passedIds),
+      };
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    } catch {
+      // Storage write failed — non-critical, state still in memory
+    }
   },
 }));

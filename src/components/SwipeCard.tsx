@@ -1,24 +1,53 @@
-import React from "react";
-import { Image, Text, View, StyleSheet, Pressable } from "react-native";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { Text, View, StyleSheet, Pressable } from "react-native";
+import { Image } from "expo-image";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { runOnJS } from "react-native-reanimated";
 import { Activity } from "../types/activity";
 
 function priceLabel(t: Activity["priceTier"]) {
   if (t === 0) return "Free";
-  return "£".repeat(t);
+  return "€".repeat(t);
 }
 
 type Props = {
   activity: Activity;
-  onPass: () => void;
   onSave: () => void;
-  onAdd: () => void;
 };
 
-export function SwipeCard({ activity, onPass, onSave, onAdd }: Props) {
+export function SwipeCard({ activity, onSave }: Props) {
+  const [photoIndex, setPhotoIndex] = useState(0);
+  const photos = activity.photoUrls;
+
+  useEffect(() => {
+    setPhotoIndex(0);
+  }, [activity.id]);
+
+  const cyclePhoto = useCallback(() => {
+    if (photos.length > 1) setPhotoIndex((i) => (i + 1) % photos.length);
+  }, [photos.length]);
+
+  const tapGesture = useMemo(
+    () => Gesture.Tap().onEnd(() => { runOnJS(cyclePhoto)(); }),
+    [cyclePhoto],
+  );
+
   return (
-    <View style={styles.card}>
-      <Image source={{ uri: activity.photoUrl }} style={styles.image} />
-      <View style={styles.overlay} />
+    <View style={styles.card} accessibilityLabel={`${activity.name}, ${activity.category}, ${activity.neighborhood}, ${priceLabel(activity.priceTier)}, ${activity.durationMins} minutes`}>
+      <GestureDetector gesture={tapGesture}>
+        <View style={StyleSheet.absoluteFill}>
+          <Image source={photos[photoIndex]} style={styles.image} contentFit="cover" transition={200} placeholder={{ blurhash: "LGF5]+Yk^6#M@-5c,1J5@[or[Q6." }} accessibilityIgnoresInvertColors />
+        </View>
+      </GestureDetector>
+      <View style={styles.overlay} pointerEvents="none" />
+
+      {photos.length > 1 && (
+        <View style={styles.dots} pointerEvents="none">
+          {photos.map((_, i) => (
+            <View key={i} style={[styles.dot, i === photoIndex && styles.dotActive]} />
+          ))}
+        </View>
+      )}
 
       <View style={styles.content}>
         <Text style={styles.title}>{activity.name}</Text>
@@ -35,16 +64,8 @@ export function SwipeCard({ activity, onPass, onSave, onAdd }: Props) {
       </View>
 
       <View style={styles.actions}>
-        <Pressable onPress={onPass} style={styles.actionBtn}>
-          <Text style={styles.actionTxt}>✕</Text>
-        </Pressable>
-
-        <Pressable onPress={onSave} style={styles.actionBtn}>
+        <Pressable onPress={onSave} style={styles.actionBtn} accessibilityRole="button" accessibilityLabel={`Save ${activity.name}`} hitSlop={8}>
           <Text style={styles.actionTxt}>★</Text>
-        </Pressable>
-
-        <Pressable onPress={onAdd} style={styles.actionBtn}>
-          <Text style={styles.actionTxt}>♥</Text>
         </Pressable>
       </View>
     </View>
@@ -65,7 +86,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 16,
     right: 16,
-    bottom: 120,
+    bottom: 100,
   },
   title: { fontSize: 28, fontWeight: "800", color: "white" },
   tags: { marginTop: 6, fontSize: 13, color: "rgba(255,255,255,0.85)", fontWeight: "600" },
@@ -77,7 +98,7 @@ const styles = StyleSheet.create({
     right: 16,
     bottom: 18,
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "center",
     alignItems: "center",
   },
   actionBtn: {
@@ -89,4 +110,22 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.92)",
   },
   actionTxt: { fontSize: 26, fontWeight: "900" },
+  dots: {
+    position: "absolute",
+    top: 12,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 6,
+  },
+  dot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: "rgba(255,255,255,0.45)",
+  },
+  dotActive: {
+    backgroundColor: "white",
+  },
 });

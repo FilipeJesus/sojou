@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { Dimensions, StyleSheet, View } from "react-native";
+import { Dimensions, StyleSheet, Text, View } from "react-native";
 import Animated, {
   interpolate,
   runOnJS,
@@ -96,13 +96,20 @@ export function SwipeDeck({ activities, onPass, onSave, onAdd }: Props) {
     return { transform: [{ scale }] };
   });
 
-  if (!top) return <View style={styles.empty} />;
+  if (!top) {
+    return (
+      <View style={styles.emptyWrap}>
+        <Text style={styles.emptyTitle}>All caught up!</Text>
+        <Text style={styles.emptyText}>You've seen all available activities. Check your itinerary to review your picks.</Text>
+      </View>
+    );
+  }
 
   return (
-    <View style={styles.wrap}>
+    <View style={styles.wrap} accessibilityLabel={`Activity cards, ${activities.length} remaining`}>
       {next ? (
         <Animated.View style={[styles.card, styles.nextCard, nextStyle]}>
-          <SwipeCard activity={next} onPass={() => {}} onSave={() => {}} onAdd={() => {}} />
+          <SwipeCard activity={next} onSave={() => {}} />
         </Animated.View>
       ) : null}
 
@@ -110,9 +117,7 @@ export function SwipeDeck({ activities, onPass, onSave, onAdd }: Props) {
         <Animated.View style={[styles.card, topStyle]}>
           <SwipeCard
             activity={top}
-            onPass={() => flingOut("left")}
             onSave={() => flingOut("save")}
-            onAdd={() => flingOut("right")}
           />
         </Animated.View>
       </GestureDetector>
@@ -130,5 +135,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   nextCard: { top: 6 },
-  empty: { flex: 1 },
+  emptyWrap: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 },
+  emptyTitle: { fontSize: 22, fontWeight: "900", opacity: 0.6 },
+  emptyText: { fontSize: 14, opacity: 0.5, marginTop: 8, textAlign: "center" },
 });

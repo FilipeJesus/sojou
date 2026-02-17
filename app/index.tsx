@@ -1,10 +1,12 @@
 import React, { useEffect } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTripStore } from "../src/store/tripStore";
 
 export default function Home() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { config, setDaysCount, hydrate } = useTripStore();
 
   useEffect(() => {
@@ -12,21 +14,21 @@ export default function Home() {
   }, [hydrate]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <Text style={styles.h1}>Sojou</Text>
       <Text style={styles.p}>Prototype: swipe to build a {config.daysCount}-day plan.</Text>
 
       <View style={styles.row}>
-        <Pressable style={styles.btn} onPress={() => setDaysCount(config.daysCount - 1)}>
+        <Pressable style={styles.btn} onPress={() => setDaysCount(config.daysCount - 1)} accessibilityRole="button" accessibilityLabel="Decrease days">
           <Text style={styles.btnTxt}>-</Text>
         </Pressable>
-        <Text style={styles.days}>{config.daysCount} days</Text>
-        <Pressable style={styles.btn} onPress={() => setDaysCount(config.daysCount + 1)}>
+        <Text style={styles.days} accessibilityLabel={`${config.daysCount} days`}>{config.daysCount} days</Text>
+        <Pressable style={styles.btn} onPress={() => setDaysCount(config.daysCount + 1)} accessibilityRole="button" accessibilityLabel="Increase days">
           <Text style={styles.btnTxt}>+</Text>
         </Pressable>
       </View>
 
-      <Pressable style={styles.cta} onPress={() => router.push("/swipe")}>
+      <Pressable style={styles.cta} onPress={() => router.push("/swipe")} accessibilityRole="button" accessibilityLabel="Start swiping through activities">
         <Text style={styles.ctaTxt}>Start swiping</Text>
       </Pressable>
     </View>
