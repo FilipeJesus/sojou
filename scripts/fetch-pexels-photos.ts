@@ -7,7 +7,8 @@
  *
  * Usage:
  *   PEXELS_API_KEY=your_key npx ts-node scripts/fetch-pexels-photos.ts
- *   npx ts-node scripts/fetch-pexels-photos.ts --dry   # preview without API calls
+ *   npx ts-node scripts/fetch-pexels-photos.ts --dry          # preview without API calls
+ *   npx ts-node scripts/fetch-pexels-photos.ts --count 3      # fetch 3 photos per search (default: 1)
  *
  * The Pexels free tier allows 200 requests/hour (up to 2 requests per activity).
  *
@@ -19,6 +20,15 @@ import * as path from "path";
 
 const DRY_RUN =
   process.argv.includes("--dry") || process.argv.includes("--dry-run");
+
+function parseIntFlag(flag: string, fallback: number): number {
+  const idx = process.argv.indexOf(flag);
+  if (idx === -1 || idx + 1 >= process.argv.length) return fallback;
+  const val = parseInt(process.argv[idx + 1], 10);
+  return Number.isNaN(val) || val < 1 ? fallback : val;
+}
+
+const PHOTOS_PER_SEARCH = parseIntFlag("--count", 1);
 
 const API_KEY = process.env.PEXELS_API_KEY;
 if (!API_KEY && !DRY_RUN) {
@@ -57,27 +67,26 @@ function buildQuery(term: string, category: string): string {
   return `${base} Paris France`;
 }
 
-async function searchPexels(query: string): Promise<PexelsPhoto | null> {
-  const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&orientation=portrait&per_page=1`;
+async function searchPexels(query: string, count: number = PHOTOS_PER_SEARCH): Promise<PexelsPhoto[]> {
+  const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&orientation=portrait&per_page=${count}`;
   const res = await fetch(url, {
     headers: { Authorization: API_KEY! },
   });
 
   if (res.status === 429) {
     console.error("Rate limit hit. Wait an hour and re-run.");
-    return null;
+    return [];
   }
   if (!res.ok) {
     console.error(`Pexels API error ${res.status}: ${await res.text()}`);
-    return null;
+    return [];
   }
 
   const data: PexelsSearchResponse = await res.json();
   const remaining = res.headers.get("x-ratelimit-remaining");
   console.log(`    Rate limit remaining: ${remaining}`);
 
-  if (!data.photos || data.photos.length === 0) return null;
-  return data.photos[0];
+  return data.photos ?? [];
 }
 
 type ActivityBlock = {
@@ -129,15 +138,22 @@ async function main() {
   console.log(`Found ${activities.length} activities`);
 
   if (DRY_RUN) {
-    console.log("\n--- DRY RUN (no API calls, no file writes) ---\n");
+    console.log("\n--- DRY RUN (no API calls, no file writes) ---");
+    console.log(`Photos per search: ${PHOTOS_PER_SEARCH}\n`);
     let alreadyFetched = 0;
     let wouldFetch = 0;
     let requestsNeeded = 0;
 
+    // Target: PHOTOS_PER_SEARCH from place search + PHOTOS_PER_SEARCH from activity search
+    const targetPexels = PHOTOS_PER_SEARCH * 2;
+    let totalPhotosNeeded = 0;
+
     for (const act of activities) {
-      const hasPexels = act.photoUrls.some((u) => u.includes("pexels.com"));
-      if (hasPexels) {
-        console.log(`  \u2713 ${act.name} \u2014 already has Pexels URL`);
+      const existingPexels = act.photoUrls.filter((u) => u.includes("pexels.com")).length;
+      const needed = targetPexels - existingPexels;
+
+      if (needed <= 0) {
+        console.log(`  \u2713 ${act.name} \u2014 has ${existingPexels} Pexels photo(s), target met`);
         alreadyFetched++;
       } else {
         const placeQuery = act.place
@@ -145,24 +161,28 @@ async function main() {
           : undefined;
         const activityQuery = buildQuery(act.name, act.category);
 
-        console.log(`  \u25CB ${act.name}`);
+        console.log(`  \u25CB ${act.name} (has ${existingPexels}, needs ${needed} more)`);
         if (placeQuery) {
-          console.log(`      place search:    "${placeQuery}"`);
-          console.log(`      activity search: "${activityQuery}"`);
+          console.log(`      place search:    "${placeQuery}" (${PHOTOS_PER_SEARCH} photos)`);
+          console.log(`      activity search: "${activityQuery}" (${PHOTOS_PER_SEARCH} photos)`);
           requestsNeeded += 2;
         } else {
-          console.log(`      activity search: "${activityQuery}"`);
+          console.log(`      activity search: "${activityQuery}" (${PHOTOS_PER_SEARCH} photos)`);
           requestsNeeded += 1;
         }
+        totalPhotosNeeded += needed;
         wouldFetch++;
       }
     }
 
+    const maxPhotos = totalPhotosNeeded;
     const batches = Math.ceil(requestsNeeded / MAX_REQUESTS);
     console.log(`\nSummary:`);
     console.log(`  Total activities:  ${activities.length}`);
     console.log(`  Already fetched:   ${alreadyFetched}`);
     console.log(`  Would fetch:       ${wouldFetch}`);
+    console.log(`  Photos per search: ${PHOTOS_PER_SEARCH}`);
+    console.log(`  Max photos added:  up to ${maxPhotos}`);
     console.log(`  API requests needed: ${requestsNeeded}`);
     console.log(
       `  Rate limit batches: ${batches} (${MAX_REQUESTS} requests/hour)`,
@@ -181,10 +201,15 @@ async function main() {
   let updated = fileContent;
   let requestCount = 0;
 
+  // Target: PHOTOS_PER_SEARCH from place search + PHOTOS_PER_SEARCH from activity search
+  const targetPexels = PHOTOS_PER_SEARCH * 2;
+
   for (const act of activities) {
-    // Skip if already has a Pexels URL
-    if (act.photoUrls.some((u) => u.includes("pexels.com"))) {
-      console.log(`\u2713 ${act.name} \u2014 already has Pexels URL`);
+    const existingPexels = act.photoUrls.filter((u) => u.includes("pexels.com")).length;
+    const needed = targetPexels - existingPexels;
+
+    if (needed <= 0) {
+      console.log(`\u2713 ${act.name} \u2014 has ${existingPexels} Pexels photo(s), target met`);
       continue;
     }
 
@@ -197,50 +222,53 @@ async function main() {
     }
 
     const newUrls: string[] = [];
-    console.log(`Fetching: ${act.name}`);
+    const seenPhotoIds = new Set<number>();
+    // Avoid fetching duplicates of existing Pexels URLs
+    const existingUrls = new Set(act.photoUrls);
+    console.log(`Fetching: ${act.name} (has ${existingPexels}, needs ${needed} more)`);
 
-    // Search for place photo
+    // Search for place photos
     if (act.place && requestCount < MAX_REQUESTS) {
       const placeQuery = buildQuery(act.place, act.category);
-      console.log(`  \u2192 place search: "${placeQuery}"`);
-      const placeResult = await searchPexels(placeQuery);
+      console.log(`  \u2192 place search: "${placeQuery}" (${PHOTOS_PER_SEARCH})`);
+      const placeResults = await searchPexels(placeQuery);
       requestCount++;
-      if (placeResult) {
-        newUrls.push(placeResult.src.large);
+      for (const photo of placeResults) {
+        if (newUrls.length >= needed) break;
+        if (seenPhotoIds.has(photo.id)) continue;
+        if (existingUrls.has(photo.src.large)) continue;
+        seenPhotoIds.add(photo.id);
+        newUrls.push(photo.src.large);
         attributions.push({
           activity: act.name,
-          photographer: placeResult.photographer,
-          profileUrl: placeResult.photographer_url,
+          photographer: photo.photographer,
+          profileUrl: photo.photographer_url,
           searchUsed: `place: ${placeQuery}`,
         });
-        console.log(
-          `  \u2713 place photo \u2192 ${placeResult.photographer}`,
-        );
+        console.log(`  \u2713 place photo \u2192 ${photo.photographer}`);
       }
       await new Promise((r) => setTimeout(r, 200));
     }
 
-    // Search for activity photo
+    // Search for activity photos
     if (requestCount < MAX_REQUESTS) {
       const activityQuery = buildQuery(act.name, act.category);
-      console.log(`  \u2192 activity search: "${activityQuery}"`);
-      const actResult = await searchPexels(activityQuery);
+      console.log(`  \u2192 activity search: "${activityQuery}" (${PHOTOS_PER_SEARCH})`);
+      const actResults = await searchPexels(activityQuery);
       requestCount++;
-      if (actResult) {
-        // Avoid duplicate if same photo as place search
-        const actUrl = actResult.src.large;
-        if (!newUrls.includes(actUrl)) {
-          newUrls.push(actUrl);
-          attributions.push({
-            activity: act.name,
-            photographer: actResult.photographer,
-            profileUrl: actResult.photographer_url,
-            searchUsed: `activity: ${activityQuery}`,
-          });
-          console.log(
-            `  \u2713 activity photo \u2192 ${actResult.photographer}`,
-          );
-        }
+      for (const photo of actResults) {
+        if (newUrls.length >= needed) break;
+        if (seenPhotoIds.has(photo.id)) continue;
+        if (existingUrls.has(photo.src.large)) continue;
+        seenPhotoIds.add(photo.id);
+        newUrls.push(photo.src.large);
+        attributions.push({
+          activity: act.name,
+          photographer: photo.photographer,
+          profileUrl: photo.photographer_url,
+          searchUsed: `activity: ${activityQuery}`,
+        });
+        console.log(`  \u2713 activity photo \u2192 ${photo.photographer}`);
       }
       await new Promise((r) => setTimeout(r, 200));
     }
