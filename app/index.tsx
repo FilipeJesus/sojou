@@ -13,7 +13,7 @@ export default function Home() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.h1}>Travel Tinder</Text>
+      <Text style={styles.h1}>Sojou</Text>
       <Text style={styles.p}>Prototype: swipe to build a {config.daysCount}-day plan.</Text>
 
       <View style={styles.row}>

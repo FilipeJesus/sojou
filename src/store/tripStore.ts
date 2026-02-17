@@ -34,7 +34,7 @@ type TripState = {
   persist: () => Promise<void>;
 };
 
-const STORAGE_KEY = "travel_tinder_proto_v1";
+const STORAGE_KEY = "sojou_proto_v1";
 
 function setToArray<T>(s: Set<T>): T[] {
   return Array.from(s);
@@ -64,7 +64,10 @@ export const useTripStore = create<TripState>((set, get) => ({
     void get().persist();
   },
 
-  setDeck: (deck) => set({ deck }),
+  setDeck: (deck) => {
+    set({ deck });
+    if (get().addedIds.size > 0) get().regenerate();
+  },
 
   swipeAdd: (activity) => {
     set((st) => {

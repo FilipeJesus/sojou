@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { Dimensions, StyleSheet, View } from "react-native";
 import Animated, {
   interpolate,
@@ -23,24 +23,11 @@ type Props = {
 };
 
 export function SwipeDeck({ activities, onPass, onSave, onAdd }: Props) {
-  const [index, setIndex] = useState(0);
-
-  const top = activities[index];
-  const next = activities[index + 1];
+  const top = activities[0];
+  const next = activities[1];
 
   const x = useSharedValue(0);
   const y = useSharedValue(0);
-
-  const reset = () => {
-    x.value = withSpring(0);
-    y.value = withSpring(0);
-  };
-
-  const advance = () => {
-    setIndex((i) => Math.min(i + 1, activities.length));
-    x.value = 0;
-    y.value = 0;
-  };
 
   const commit = (action: "left" | "right" | "save") => {
     if (!top) return;
@@ -49,7 +36,9 @@ export function SwipeDeck({ activities, onPass, onSave, onAdd }: Props) {
     if (action === "right") onAdd(top);
     if (action === "save") onSave(top);
 
-    advance();
+    // Reset position for the next card (activities will re-filter)
+    x.value = 0;
+    y.value = 0;
   };
 
   const flingOut = (action: "left" | "right" | "save") => {
@@ -86,10 +75,11 @@ export function SwipeDeck({ activities, onPass, onSave, onAdd }: Props) {
           if (passedRight) return flingOut("right");
           if (passedLeft) return flingOut("left");
 
-          reset();
+          x.value = withSpring(0);
+          y.value = withSpring(0);
         }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [top, activities.length]
+    [top?.id, activities.length]
   );
 
   const topStyle = useAnimatedStyle(() => {
