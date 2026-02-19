@@ -15,4 +15,6 @@ export type Activity = {
   openWindows?: Array<"morning" | "afternoon" | "evening">;
   mustBook?: boolean;
   popularity?: number; // 0..100
+  description?: string;
+  highlights?: string[];
 };
